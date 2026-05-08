@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "vertical_slice": {
+    "scenario_slug": "ai_overuse",
+    "turn_count": 4,
+    "ai_shape": "hybrid_narrative_stream_plus_server_scoring",
+    "streaming_ux": "sse_typewriter_tokens",
+    "win_condition": "complete_all_turns",
+    "achievement_stub_id": "first_survivor"
+  },
+  "scenarios": [
+    {
+      "slug": "ai_overuse",
+      "title": "AI Overuse",
+      "icon": "⚡",
+      "tagline": "Too many drafts, too little shame.",
+      "body": "Metrics demand velocity. Your neural partner suggests twelve more variants before lunch.",
+      "turns": [
+        {
+          "id": 0,
+          "static_line": "Quarterly OKRs blink red. Your copilot offers seventeen bullet points before you've finished saying good morning.",
+          "choices": [
+            "Mute suggestions until coffee",
+            "Accept all and claim originality",
+            "Ask it to justify each bullet"
+          ],
+          "score_delta_by_choice": [2, -8, 4]
+        },
+        {
+          "id": 1,
+          "choices": [
+            "Schedule a human review gate",
+            "Ship Friday and iterate never",
+            "Rename the chaos to 'iteration'"
+          ],
+          "score_delta_by_choice": [5, -10, -3]
+        },
+        {
+          "id": 2,
+          "choices": [
+            "Escalate to legal with screenshots",
+            "Let the model moderate itself",
+            "Take the afternoon off"
+          ],
+          "score_delta_by_choice": [6, -12, 8]
+        },
+        {
+          "id": 3,
+          "choices": [
+            "Declare victory and close the laptop",
+            "Open three more tabs",
+            "Write a post mortem titled Lessons Learned"
+          ],
+          "score_delta_by_choice": [10, -5, 7]
+        }
+      ]
+    },
+    {
+      "slug": "hallucination",
+      "title": "Hallucination",
+      "icon": "✨",
+      "tagline": "Confidence is high. Accuracy is negotiable.",
+      "body": "Facts assemble themselves from vibes. Hold the clipboard steady while reality negotiates.",
+      "turns": [
+        {
+          "id": 0,
+          "static_line": "The deck cites a study that sounds prestigious. No one can find the PDF.",
+          "choices": ["Demand citations", "Present anyway", "Blame the intern"],
+          "score_delta_by_choice": [5, -8, -4]
+        },
+        {
+          "id": 1,
+          "choices": ["Fact-check live", "Add more charts", "Pivot to vision"],
+          "score_delta_by_choice": [6, -3, -6]
+        },
+        {
+          "id": 2,
+          "choices": ["Issue a correction", "Double down", "Ghost the thread"],
+          "score_delta_by_choice": [8, -10, -2]
+        },
+        {
+          "id": 3,
+          "choices": ["Archive humbly", "Mint an NFT of the slide", "Take a walk"],
+          "score_delta_by_choice": [10, -15, 7]
+        }
+      ]
+    },
+    {
+      "slug": "ethics",
+      "title": "Ethics",
+      "icon": "⚖️",
+      "tagline": "The trolley has a Terms of Service update.",
+      "body": "Principles enter the chat. Stakeholders bring slide decks. You bring the uncomfortable questions.",
+      "turns": [
+        {
+          "id": 0,
+          "static_line": "Leadership asks you to optimize engagement using data you shouldn't have.",
+          "choices": ["Refuse quietly", "Compliance theater", "Escalate in writing"],
+          "score_delta_by_choice": [6, -10, 8]
+        },
+        {
+          "id": 1,
+          "choices": ["Propose a lighter metric", "Ship the dark pattern", "Schedule ethics office hours"],
+          "score_delta_by_choice": [5, -12, 7]
+        },
+        {
+          "id": 2,
+          "choices": ["Document dissent", "Vote present", "Mute yourself forever"],
+          "score_delta_by_choice": [8, -4, -6]
+        },
+        {
+          "id": 3,
+          "choices": ["Walk away proud", "Accept the mug", "Leak the slide deck"],
+          "score_delta_by_choice": [12, 3, -20]
+        }
+      ]
+    }
+  ]
+}

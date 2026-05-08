@@ -1,1 +1,6 @@
-streamlit>=1.28.0,<2
+# Install API dependencies:
+#   pip install -r server/requirements.txt
+#
+# Legacy Streamlit prototype (optional):
+#   pip install "streamlit>=1.28.0,<2"
+#   streamlit run legacy/streamlit_app.py

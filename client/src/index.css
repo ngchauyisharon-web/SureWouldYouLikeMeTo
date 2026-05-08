@@ -1,0 +1,47 @@
+:root {
+  --cutout-primary: #cb0319;
+  --cutout-primary-soft: #e4253a;
+  --cutout-secondary: #006c95;
+  --cutout-tertiary: #4c6f00;
+  --cutout-surface: #fffbff;
+  --cutout-surface-low: #fff9e5;
+  --cutout-surface-high: #f5eb90;
+  --cutout-outline: #c3bb7a;
+  --cutout-on-surface: #3d3904;
+  --cutout-shadow: color-mix(in srgb, #3d3904 22%, transparent);
+  --cutout-font: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--cutout-font);
+  background: radial-gradient(
+      1200px 800px at 15% -10%,
+      var(--cutout-surface-low) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 600px at 100% 10%,
+      color-mix(in srgb, var(--cutout-secondary) 12%, transparent) 0%,
+      transparent 50%
+    ),
+    var(--cutout-surface);
+  color: var(--cutout-on-surface);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
