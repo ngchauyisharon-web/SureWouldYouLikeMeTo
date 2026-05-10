@@ -17,6 +17,11 @@ export type SessionSnapshot = {
   static_line?: string | null;
   scenario_art_status?: string;
   scenario_art_b64?: string | null;
+  scenario_art_detail?: string | null;
+  scenario_art_turn_index?: number | null;
+  scenario_mode?: "static" | "dynamic";
+  outline_generation_error?: string | null;
+  turn_generation_error?: string | null;
 };
 
 export type AnswerModeResponse = {
@@ -27,6 +32,11 @@ export type AnswerModeResponse = {
   choices: string[];
   static_line?: string | null;
   ai_options_penalty?: number;
+  scenario_art_status?: string;
+  scenario_art_b64?: string | null;
+  scenario_art_detail?: string | null;
+  scenario_art_turn_index?: number | null;
+  choices_error?: string | null;
 };
 
 export type StatePatch = {
@@ -36,6 +46,11 @@ export type StatePatch = {
   static_line?: string | null;
   ended?: boolean;
   achievement_unlocked?: string | null;
+  scenario_art_status?: string;
+  scenario_art_b64?: string | null;
+  scenario_art_detail?: string | null;
+  scenario_art_turn_index?: number | null;
+  choices_error?: string | null;
 };
 
 function apiPrefix(): string {
@@ -53,11 +68,17 @@ export async function fetchScenarios(): Promise<ScenarioSummary[]> {
   return data.scenarios;
 }
 
-export async function createSession(slug: string): Promise<SessionSnapshot> {
+export async function createSession(
+  slug: string,
+  opts?: { generated?: boolean },
+): Promise<SessionSnapshot> {
   const res = await fetch(`${apiPrefix()}/api/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scenario_slug: slug }),
+    body: JSON.stringify({
+      scenario_slug: slug,
+      source: opts?.generated ? "generated" : "static",
+    }),
   });
   if (!res.ok) throw new Error("failed_session");
   return res.json() as Promise<SessionSnapshot>;
@@ -165,20 +186,18 @@ export async function neurobotChat(
   return res.json() as Promise<{ reply: string; neural_score: number }>;
 }
 
-export async function fetchOutcomeImage(sessionId: string): Promise<{
-  status: string;
-  b64: string | null;
-}> {
-  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/outcome-image`);
-  if (!res.ok) throw new Error("failed_outcome_image");
-  return res.json() as Promise<{ status: string; b64: string | null }>;
-}
-
 export async function fetchScenarioArt(sessionId: string): Promise<{
   status: string;
   b64: string | null;
+  detail?: string | null;
+  scenario_art_turn_index?: number | null;
 }> {
   const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/scenario-art`);
   if (!res.ok) throw new Error("failed_scenario_art");
-  return res.json() as Promise<{ status: string; b64: string | null }>;
+  return res.json() as Promise<{
+    status: string;
+    b64: string | null;
+    detail?: string | null;
+    scenario_art_turn_index?: number | null;
+  }>;
 }

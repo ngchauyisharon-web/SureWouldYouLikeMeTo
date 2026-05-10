@@ -23,6 +23,9 @@ class Phase(str, Enum):
     ended = "ended"
 
 
+ScenarioMode = Literal["static", "dynamic"]
+
+
 @dataclass
 class SessionState:
     session_id: str
@@ -38,8 +41,17 @@ class SessionState:
     neurobot_history: list[dict[str, str]] = field(default_factory=list)
     outcome_image_b64: str | None = None
     outcome_image_status: str = "idle"
+    outcome_image_detail: str | None = None
     scenario_art_b64: str | None = None
     scenario_art_status: str = "idle"
+    scenario_art_detail: str | None = None
+    scenario_art_turn_index: int | None = None  # turn index for in-flight polaroid job; None if idle
+    scenario_mode: ScenarioMode = "static"
+    """LLM outline: title, tagline, body, icon, turns: list[{static_line}]."""
+    dynamic_outline: dict[str, Any] | None = None
+    choices_by_turn: dict[int, dict[str, Any]] = field(default_factory=dict)
+    outline_generation_error: str | None = None
+    turn_generation_error: str | None = None
 
 
 class SessionStore:
@@ -66,6 +78,20 @@ class SessionStore:
 store = SessionStore()
 
 
+def scenario_art_begin_turn(state: SessionState) -> dict[str, Any]:
+    """Start a new polaroid image cycle for the current question turn (caller schedules generation)."""
+    state.scenario_art_status = "pending"
+    state.scenario_art_b64 = None
+    state.scenario_art_detail = None
+    state.scenario_art_turn_index = state.turn_index
+    return {
+        "scenario_art_status": state.scenario_art_status,
+        "scenario_art_b64": None,
+        "scenario_art_detail": None,
+        "scenario_art_turn_index": state.turn_index,
+    }
+
+
 def apply_answer_mode(state: SessionState, scenario: ScenarioDef, mode: str) -> dict[str, Any]:
     """Lock in free-text vs AI-options play style for the session; applies penalty for AI options."""
     if state.phase != Phase.awaiting_answer_mode:
@@ -79,6 +105,7 @@ def apply_answer_mode(state: SessionState, scenario: ScenarioDef, mode: str) -> 
     state.neurobot_history.clear()
     state.outcome_image_b64 = None
     state.outcome_image_status = "idle"
+    state.outcome_image_detail = None
     turn = scenario.turns[state.turn_index]
     out: dict[str, Any] = {
         "phase": state.phase.value,
@@ -116,6 +143,7 @@ def apply_choice(state: SessionState, scenario: ScenarioDef, choice_index: int) 
     state.neurobot_history.clear()
     state.outcome_image_b64 = None
     state.outcome_image_status = "idle"
+    state.outcome_image_detail = None
     choice_label = turn.choices[choice_index]
     state.messages.append(
         {"role": "player", "turn": state.turn_index, "choice": choice_label, "score_delta": delta}
@@ -136,6 +164,7 @@ def apply_free_text(state: SessionState, scenario: ScenarioDef, text: str) -> No
     state.neurobot_history.clear()
     state.outcome_image_b64 = None
     state.outcome_image_status = "idle"
+    state.outcome_image_detail = None
     state.messages.append(
         {
             "role": "player",
@@ -233,7 +262,7 @@ def advance_after_stream(state: SessionState, scenario: ScenarioDef, narrative: 
 
 def initial_client_snapshot(state: SessionState, scenario: ScenarioDef) -> dict[str, Any]:
     turn0 = scenario.turns[0]
-    return {
+    snap: dict[str, Any] = {
         "session_id": state.session_id,
         "scenario": {
             "slug": scenario.slug,
@@ -250,7 +279,15 @@ def initial_client_snapshot(state: SessionState, scenario: ScenarioDef) -> dict[
         "static_line": turn0.static_line,
         "scenario_art_status": state.scenario_art_status,
         "scenario_art_b64": state.scenario_art_b64,
+        "scenario_art_detail": state.scenario_art_detail,
+        "scenario_art_turn_index": state.scenario_art_turn_index,
+        "scenario_mode": state.scenario_mode,
     }
+    if state.outline_generation_error:
+        snap["outline_generation_error"] = state.outline_generation_error
+    if state.turn_generation_error:
+        snap["turn_generation_error"] = state.turn_generation_error
+    return snap
 
 
 def sse_encode(event: str, data: dict) -> str:

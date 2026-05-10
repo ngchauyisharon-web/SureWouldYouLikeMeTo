@@ -90,3 +90,19 @@ def test_scenario_art_endpoint() -> None:
     art = client.get(f"/api/sessions/{sid}/scenario-art").json()
     assert art["status"] == "idle"
     assert art.get("b64") is None
+    assert art.get("scenario_art_turn_index") is None
+
+
+def test_answer_mode_includes_pending_scenario_art_when_images_configured(monkeypatch) -> None:
+    async def noop_job(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("app.main.is_image_generation_configured", lambda: True)
+    monkeypatch.setattr("app.main._run_question_art_job", noop_job)
+    client = TestClient(app)
+    sid = client.post("/api/sessions", json={"scenario_slug": "ai_overuse"}).json()["session_id"]
+    r = client.post(f"/api/sessions/{sid}/answer-mode", json={"mode": "free_text"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("scenario_art_status") == "pending"
+    assert body.get("scenario_art_turn_index") == 0

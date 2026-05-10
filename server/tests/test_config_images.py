@@ -12,4 +12,5 @@ def test_image_endpoint_and_auth_when_only_image_deployment(monkeypatch) -> None
     s = Settings()
     assert s.openai_api_key == "test-key"
     assert s.openai_images_endpoint == "https://hkust.azure-api.net/openai/deployments/dall-e-3"
-    assert s.openai_auth_style == "azure"
+    # Chat stays on default bearer + public base until AZURE_DEPLOYMENT_NAME is set.
+    assert s.openai_auth_style == "bearer"

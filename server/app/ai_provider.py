@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 
 from app.config import settings
+
+
+def _chat_target_is_azure_deployment() -> bool:
+    """True when chat URL is an Azure OpenAI / APIM deployment path (api-key, no model in body)."""
+    return "/openai/deployments/" in settings.openai_base_url.strip().lower()
 
 
 async def chat_completion_text(
@@ -24,8 +30,7 @@ async def chat_completion_text(
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}api-version={settings.openai_api_version}"
 
-    auth = (settings.openai_auth_style or "bearer").lower()
-    if auth == "azure":
+    if _chat_target_is_azure_deployment():
         headers = {
             "api-key": settings.openai_api_key,
             "Content-Type": "application/json",
@@ -49,10 +54,24 @@ async def chat_completion_text(
             "temperature": temperature,
         }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
-        resp = await client.post(url, headers=headers, json=body)
-        resp.raise_for_status()
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            resp = await client.post(url, headers=headers, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPStatusError as e:
+        log = logging.getLogger(__name__)
+        detail = ""
+        try:
+            detail = (e.response.text or "")[:400].replace("\n", " ")
+        except Exception:
+            pass
+        log.warning("chat_completion_text HTTP %s: %s body_prefix=%s", e.response.status_code, e, detail)
+        return _mock_coach_reply(messages)
+    except httpx.RequestError as e:
+        logging.getLogger(__name__).warning("chat_completion_text: %s", e)
+        return _mock_coach_reply(messages)
+
     choices = data.get("choices") or []
     if not choices:
         return ""
@@ -95,8 +114,7 @@ async def stream_chat_completion(messages: list[dict[str, str]]) -> AsyncIterato
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}api-version={settings.openai_api_version}"
 
-    auth = (settings.openai_auth_style or "bearer").lower()
-    if auth == "azure":
+    if _chat_target_is_azure_deployment():
         headers = {
             "api-key": settings.openai_api_key,
             "Content-Type": "application/json",

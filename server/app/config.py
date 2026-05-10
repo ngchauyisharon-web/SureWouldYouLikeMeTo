@@ -1,5 +1,20 @@
+from __future__ import annotations
+
+import os
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _bootstrap_azure_env_from_colab_defaults() -> None:
+    """Match Colab `os.environ.setdefault` for HKUST (non-secrets only — put AZURE_OPENAI_API_KEY in `.env`)."""
+    os.environ.setdefault("AZURE_OPENAI_ENDPOINT", "https://hkust.azure-api.net")
+    os.environ.setdefault("AZURE_DEPLOYMENT_NAME", "gpt-4o-mini")
+    os.environ.setdefault("AZURE_EMBEDDING_DEPLOYMENT", "text-embedding-3-small")
+    os.environ.setdefault("AZURE_IMAGE_DEPLOYMENT", "dall-e-3")
+
+
+_bootstrap_azure_env_from_colab_defaults()
 
 _DEFAULT_PUBLIC_OPENAI_BASE = "https://api.openai.com/v1"
 
@@ -14,8 +29,8 @@ class Settings(BaseSettings):
     openai_api_version: str = ""
     openai_images_endpoint: str = ""
     openai_images_api_version: str = "2025-02-01-preview"
-    # When True, call DALL·E via AzureOpenAI SDK (HKUST gateway) instead of raw HTTP.
-    openai_images_use_azure_sdk: bool = False
+    # When True, call DALL·E via Azure OpenAI SDK (HKUST APIM) first; HTTP is fallback.
+    openai_images_use_azure_sdk: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ── Colab / HKUST-style aliases (optional). Mapped in apply_azure_env_aliases.
@@ -40,17 +55,15 @@ class Settings(BaseSettings):
         if ep and img and not self.openai_images_endpoint.strip():
             self.openai_images_endpoint = f"{ep}/openai/deployments/{img}"
 
-        # HKUST / Azure APIM expects api-key header for both chat and images HTTP calls.
-        if ep and (dep or img):
+        # Chat completions: only switch to Azure api-key + api-version when a chat deployment exists.
+        # (Image-only AZURE_IMAGE_DEPLOYMENT must not force chat onto api.openai.com with api-key.)
+        if ep and dep:
             self.openai_auth_style = "azure"
             if not self.openai_api_version.strip():
                 self.openai_api_version = "2025-02-01-preview"
-
-        if ep and dep:
             base = self.openai_base_url.strip()
             if not base or base == _DEFAULT_PUBLIC_OPENAI_BASE:
                 self.openai_base_url = f"{ep}/openai/deployments/{dep}"
-
             # Keep model label aligned with chat deployment (used for non-Azure paths / docs).
             if self.openai_model.strip() in ("", "gpt-4o-mini"):
                 self.openai_model = dep

@@ -74,6 +74,13 @@ export function TopicSelect() {
                 <Link to={`/play/${s.slug}`} className={`topic-task-btn ${TASK_BTN_CLASS[index % 3]}`}>
                   SELECT TASK
                 </Link>
+                <Link
+                  to={`/play/${s.slug}?generated=1`}
+                  className="topic-task-alt"
+                  title="Slower start: LLM writes a fresh scenario from this theme"
+                >
+                  AI-generated run
+                </Link>
               </div>
             </article>
           ))}
@@ -253,5 +260,18 @@ const TOPIC_CSS = `
         }
         .topic-task-red {
           background: #cb0319;
+        }
+        .topic-task-alt {
+          margin-top: 0.35rem;
+          display: block;
+          text-align: center;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #4a4420;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .topic-task-alt:hover {
+          color: #2563eb;
         }
 `;

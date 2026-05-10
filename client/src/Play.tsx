@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   consumeSessionStream,
   createSession,
-  fetchOutcomeImage,
   fetchScenarioArt,
   neurobotChat,
   submitAnswerMode,
@@ -56,20 +55,35 @@ function stripScoreLine(text: string): string {
   return text.replace(/\r?\nSCORE_CHANGE:\s*[+-]?\d+\s*$/i, "").trim();
 }
 
+type ScenarioPolaroidGenerationPhase = "static" | "loading" | "ready" | "failed";
+
 function ScenarioHeroBanner({
   snap,
   staticLine,
   footNote,
   enlarge,
   polaroidSrc,
+  polaroidGenerationPhase,
+  polaroidFailDetail,
 }: {
   snap: SessionSnapshot;
   staticLine: string | null;
   footNote: string;
   polaroidSrc: string;
+  polaroidGenerationPhase: ScenarioPolaroidGenerationPhase;
+  polaroidFailDetail?: string | null;
   /** +50% scale for the answer-mode choice screen only */
   enlarge?: boolean;
 }) {
+  const polaroidCaption =
+    polaroidGenerationPhase === "loading"
+      ? "Generating scene for this dilemma…"
+      : polaroidGenerationPhase === "ready"
+        ? "AI-generated scene for this dilemma"
+        : polaroidGenerationPhase === "failed"
+          ? "Illustration unavailable (offline API or generation skipped)."
+          : null;
+
   return (
     <div
       className={`ai-scenario-hero${enlarge ? " ai-scenario-hero--enlarged" : ""}`}
@@ -86,11 +100,26 @@ function ScenarioHeroBanner({
         <span className="ai-scenario-footpill">{footNote}</span>
       </div>
       <div className="ai-scenario-polaroid">
-        <img
-          src={polaroidSrc}
-          alt=""
-          className="ai-scenario-polaroid-img"
-        />
+        <div className="ai-scenario-polaroid-frame">
+          <img src={polaroidSrc} alt="" className="ai-scenario-polaroid-img" />
+          {polaroidGenerationPhase === "loading" ? (
+            <div className="ai-scenario-polaroid-overlay" aria-live="polite" aria-busy="true">
+              <span className="ai-scenario-polaroid-spinner" aria-hidden />
+            </div>
+          ) : null}
+        </div>
+        {polaroidCaption ? (
+          <span className="ai-scenario-polaroid-caption-wrap">
+            <span
+              className={`ai-scenario-polaroid-caption${polaroidGenerationPhase === "failed" ? " ai-scenario-polaroid-caption--fallback" : ""}`}
+            >
+              {polaroidCaption}
+            </span>
+            {polaroidGenerationPhase === "failed" && polaroidFailDetail?.trim() ? (
+              <span className="ai-scenario-polaroid-detail">{polaroidFailDetail.trim()}</span>
+            ) : null}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -115,7 +144,10 @@ function pushArchive(entry: {
 
 export function Play() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const aiGeneratedRun = searchParams.get("generated") === "1";
   const [snap, setSnap] = useState<SessionSnapshot | null>(null);
+  const [sessionBooting, setSessionBooting] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [streamErr, setStreamErr] = useState<string | null>(null);
   const [modeErr, setModeErr] = useState<string | null>(null);
@@ -130,39 +162,81 @@ export function Play() {
   const [neuroMessages, setNeuroMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [neuroAsk, setNeuroAsk] = useState("");
   const [neuroSending, setNeuroSending] = useState(false);
-  const [outcomeB64, setOutcomeB64] = useState<string | null>(null);
-  const [outcomePhase, setOutcomePhase] = useState<"hidden" | "loading" | "ready" | "failed">("hidden");
   const [scenarioHeroB64, setScenarioHeroB64] = useState<string | null>(null);
+  const [scenarioHeroArtPhase, setScenarioHeroArtPhase] = useState<ScenarioPolaroidGenerationPhase>("static");
+  const [scenarioArtFailDetail, setScenarioArtFailDetail] = useState<string | null>(null);
 
   const snapRef = useRef<SessionSnapshot | null>(null);
   snapRef.current = snap;
 
   useEffect(() => {
     setScenarioHeroB64(null);
+    setScenarioHeroArtPhase("static");
+    setScenarioArtFailDetail(null);
   }, [slug]);
 
   useEffect(() => {
     if (!slug) return;
     setSnap(null);
     setLoadErr(null);
-    createSession(slug)
+    setSessionBooting(true);
+    createSession(slug, { generated: aiGeneratedRun })
       .then((s) => {
         setSnap(s);
         setChoices(s.choices);
         setStaticLine(s.static_line ?? null);
         setScore(s.neural_score);
+        const artSt = s.scenario_art_status ?? "idle";
+        if (artSt === "ready" && s.scenario_art_b64) {
+          setScenarioHeroB64(s.scenario_art_b64);
+          setScenarioHeroArtPhase("ready");
+          setScenarioArtFailDetail(null);
+        } else if (artSt === "pending") {
+          setScenarioHeroArtPhase("loading");
+          setScenarioArtFailDetail(null);
+        } else if (artSt === "failed") {
+          setScenarioHeroArtPhase("failed");
+          setScenarioArtFailDetail(s.scenario_art_detail ?? null);
+        } else {
+          setScenarioHeroArtPhase("static");
+          setScenarioArtFailDetail(null);
+        }
       })
-      .catch(() => setLoadErr("Could not start session."));
-  }, [slug]);
+      .catch(() => setLoadErr("Could not start session."))
+      .finally(() => setSessionBooting(false));
+  }, [slug, aiGeneratedRun]);
 
   useEffect(() => {
     if (!snap) return;
-    if (snap.scenario_art_status === "ready" && snap.scenario_art_b64) {
+    const status = snap.scenario_art_status ?? "idle";
+
+    if (status === "ready" && snap.scenario_art_b64) {
       setScenarioHeroB64(snap.scenario_art_b64);
+      setScenarioHeroArtPhase("ready");
+      setScenarioArtFailDetail(null);
       return;
     }
-    if (snap.scenario_art_status !== "pending") return;
 
+    if (status === "idle") {
+      setScenarioHeroArtPhase("static");
+      setScenarioArtFailDetail(null);
+      return;
+    }
+
+    if (status === "failed") {
+      setScenarioHeroArtPhase("failed");
+      setScenarioArtFailDetail(snap.scenario_art_detail ?? null);
+      return;
+    }
+
+    if (status !== "pending") {
+      setScenarioHeroArtPhase("static");
+      setScenarioArtFailDetail(null);
+      return;
+    }
+
+    setScenarioHeroArtPhase("loading");
+    setScenarioArtFailDetail(null);
     let cancelled = false;
     void (async () => {
       let fetchErrors = 0;
@@ -173,22 +247,42 @@ export function Play() {
           if (cancelled) return;
           if (r.status === "ready" && r.b64) {
             setScenarioHeroB64(r.b64);
+            setScenarioHeroArtPhase("ready");
+            setScenarioArtFailDetail(null);
             return;
           }
-          if (r.status === "failed") return;
-          if (r.status === "idle") return;
+          if (r.status === "failed") {
+            setScenarioHeroArtPhase("failed");
+            setScenarioArtFailDetail(r.detail?.trim() || null);
+            return;
+          }
+          if (r.status === "idle") {
+            setScenarioHeroArtPhase("static");
+            setScenarioArtFailDetail(null);
+            return;
+          }
         } catch {
           fetchErrors++;
-          if (fetchErrors >= 8) return;
+          if (fetchErrors >= 8) {
+            if (!cancelled) {
+              setScenarioHeroArtPhase("failed");
+              setScenarioArtFailDetail(null);
+            }
+            return;
+          }
         }
         await new Promise((x) => setTimeout(x, 2000));
+      }
+      if (!cancelled) {
+        setScenarioHeroArtPhase("failed");
+        setScenarioArtFailDetail(null);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [snap?.session_id, snap?.scenario_art_status]);
+  }, [snap?.session_id, snap?.scenario_art_status, snap?.turn_index]);
 
   useEffect(() => {
     setNeuroMessages([]);
@@ -206,45 +300,36 @@ export function Play() {
             turn_index: patch.turn_index,
             choices: patch.choices,
             static_line: patch.static_line ?? prev.static_line,
+            ...(patch.scenario_art_status !== undefined
+              ? {
+                  scenario_art_status: patch.scenario_art_status,
+                  scenario_art_b64:
+                    patch.scenario_art_b64 !== undefined ? patch.scenario_art_b64 : prev.scenario_art_b64,
+                  scenario_art_detail:
+                    patch.scenario_art_detail !== undefined ? patch.scenario_art_detail : prev.scenario_art_detail,
+                  scenario_art_turn_index:
+                    patch.scenario_art_turn_index !== undefined
+                      ? patch.scenario_art_turn_index
+                      : prev.scenario_art_turn_index,
+                }
+              : {}),
+            turn_generation_error:
+              patch.choices_error !== undefined
+                ? patch.choices_error
+                : patch.choices.length > 0
+                  ? null
+                  : prev.turn_generation_error,
           }
         : null,
     );
     setChoices(patch.choices);
     setStaticLine(patch.static_line ?? null);
     setScore(patch.neural_score);
-  }, []);
-
-  const pollOutcomeFor = useCallback(async (sessionId: string) => {
-    setOutcomePhase("loading");
-    setOutcomeB64(null);
-    let fetchErrors = 0;
-    for (let i = 0; i < 90; i++) {
-      try {
-        const r = await fetchOutcomeImage(sessionId);
-        fetchErrors = 0;
-        if (r.status === "ready" && r.b64) {
-          setOutcomeB64(r.b64);
-          setOutcomePhase("ready");
-          return;
-        }
-        if (r.status === "failed") {
-          setOutcomePhase("failed");
-          return;
-        }
-        if (r.status === "idle") {
-          setOutcomePhase("hidden");
-          return;
-        }
-      } catch {
-        fetchErrors++;
-        if (fetchErrors >= 8) {
-          setOutcomePhase("failed");
-          return;
-        }
-      }
-      await new Promise((x) => setTimeout(x, 2000));
+    if (patch.choices_error && patch.choices.length === 0) {
+      setModeErr(patch.choices_error);
+    } else {
+      setModeErr(null);
     }
-    setOutcomePhase("failed");
   }, []);
 
   const runStream = useCallback(async () => {
@@ -254,8 +339,6 @@ export function Play() {
     setStreamErr(null);
     setNarrative("");
     setNeuroMessages([]);
-    setOutcomePhase("hidden");
-    setOutcomeB64(null);
     try {
       await consumeSessionStream(cur.session_id, {
         onToken: (t) => setNarrative((prev) => prev + t),
@@ -268,10 +351,29 @@ export function Play() {
                   neural_score: p.neural_score,
                   turn_index: p.turn_index,
                   phase: p.ended ? "ended" : prev.phase,
+                  ...(p.scenario_art_status !== undefined
+                    ? {
+                        scenario_art_status: p.scenario_art_status,
+                        scenario_art_b64:
+                          p.scenario_art_b64 !== undefined ? p.scenario_art_b64 : prev.scenario_art_b64,
+                        scenario_art_detail:
+                          p.scenario_art_detail !== undefined ? p.scenario_art_detail : prev.scenario_art_detail,
+                        scenario_art_turn_index:
+                          p.scenario_art_turn_index !== undefined
+                            ? p.scenario_art_turn_index
+                            : prev.scenario_art_turn_index,
+                      }
+                    : {}),
+                  turn_generation_error:
+                    p.choices_error !== undefined
+                      ? p.choices_error
+                      : p.choices !== undefined && p.choices.length > 0
+                        ? null
+                        : prev.turn_generation_error,
                 }
               : null,
           );
-          if (p.choices) setChoices(p.choices);
+          if (p.choices !== undefined) setChoices(p.choices);
           if ("static_line" in p) setStaticLine(p.static_line ?? null);
           if (p.achievement_unlocked) setAchievement(p.achievement_unlocked);
           if (p.ended) {
@@ -291,8 +393,6 @@ export function Play() {
         onDone: () => {
           setNarrative((prev) => stripScoreLine(prev));
           setStreaming(false);
-          const sid = snapRef.current?.session_id;
-          if (sid) void pollOutcomeFor(sid);
         },
         onError: (msg) => {
           setStreamErr(msg);
@@ -303,7 +403,7 @@ export function Play() {
       setStreamErr("stream_failed");
       setStreaming(false);
     }
-  }, [pollOutcomeFor]);
+  }, []);
 
   const sendNeuroInvestigate = async () => {
     const q = neuroAsk.trim();
@@ -368,7 +468,7 @@ export function Play() {
   if (!snap) {
     return (
       <div className="play-shell">
-        <p>Loading…</p>
+        <p>{sessionBooting ? (aiGeneratedRun ? "Generating scenario…" : "Loading…") : "Loading…"}</p>
       </div>
     );
   }
@@ -392,27 +492,27 @@ export function Play() {
     (awaitingMode || awaitingMc)
   );
   const showDialogue =
-    !!achievement ||
-    !!(staticLine && !showScenarioHero) ||
-    showStreamArea ||
-    !!streamErr ||
-    outcomePhase !== "hidden";
+    !!achievement || !!(staticLine && !showScenarioHero) || showStreamArea || !!streamErr;
 
   const neuroDockPlaceholder =
     snap.answer_mode === "ai_options" && snap.phase === "awaiting_choice"
       ? "Ask before you choose…"
       : "What should you watch out for?";
 
+  const polaroidFallback = SCENARIO_HERO_ART[snap.scenario.slug] ?? "/landing-hero.png";
+  const polaroidDataSrc =
+    scenarioHeroArtPhase === "ready" && scenarioHeroB64 != null
+      ? `data:image/png;base64,${scenarioHeroB64}`
+      : polaroidFallback;
+
   const heroBanner = showScenarioHero ? (
     <ScenarioHeroBanner
       snap={snap}
       staticLine={staticLine}
       enlarge={awaitingMode}
-      polaroidSrc={
-        scenarioHeroB64 != null
-          ? `data:image/png;base64,${scenarioHeroB64}`
-          : SCENARIO_HERO_ART[snap.scenario.slug] ?? "/landing-hero.png"
-      }
+      polaroidSrc={polaroidDataSrc}
+      polaroidGenerationPhase={scenarioHeroArtPhase}
+      polaroidFailDetail={scenarioArtFailDetail}
       footNote={
         awaitingMc
           ? "AI-suggested paths engaged"
@@ -477,16 +577,6 @@ export function Play() {
           ) : null}
           {ended ? <p className="fin">Run complete. Your conscience may require a reboot.</p> : null}
         </div>
-      ) : null}
-      {outcomePhase === "loading" ? <p className="outcome-loading">Generating outcome illustration…</p> : null}
-      {outcomePhase === "ready" && outcomeB64 ? (
-        <div className="outcome-art">
-          <img src={`data:image/png;base64,${outcomeB64}`} alt="Illustration of this story beat" />
-          <span className="outcome-caption">AI-generated outcome scene</span>
-        </div>
-      ) : null}
-      {outcomePhase === "failed" ? (
-        <p className="outcome-fallback">Illustration unavailable this round (offline API or generation skipped).</p>
       ) : null}
       {streamErr ? <p className="err">{streamErr}</p> : null}
     </section>
@@ -574,6 +664,16 @@ export function Play() {
         </span>
       </nav>
 
+      {snap.outline_generation_error ? (
+        <p className="play-outline-fallback" role="status">
+          Using built-in scenario deck (AI outline unavailable): {snap.outline_generation_error}
+        </p>
+      ) : snap.scenario_mode === "dynamic" ? (
+        <p className="play-outline-ok" role="status">
+          AI-generated scenario from theme &quot;{slug}&quot;
+        </p>
+      ) : null}
+
       {showNeuroDock ? (
         <div className="play-neuro-layout">
           <div className="play-neuro-main">
@@ -660,6 +760,25 @@ export function Play() {
         .play-nav a {
           color: ${theme.secondary};
           text-decoration: none;
+        }
+        .play-outline-fallback,
+        .play-outline-ok {
+          margin: 0 0 0.5rem;
+          padding: 0.45rem 0.65rem;
+          border-radius: 10px;
+          font-size: 0.78rem;
+          line-height: 1.35;
+          max-width: 52rem;
+        }
+        .play-outline-fallback {
+          background: color-mix(in srgb, #fef3c7 85%, transparent);
+          border: 1px solid color-mix(in srgb, #d97706 35%, transparent);
+          color: ${theme.onSurface};
+        }
+        .play-outline-ok {
+          background: color-mix(in srgb, ${theme.surfaceHigh} 70%, #e0f2fe);
+          border: 1px solid color-mix(in srgb, ${theme.outline} 40%, transparent);
+          color: color-mix(in srgb, ${theme.onSurface} 88%, gray);
         }
         .pill {
           padding: 0.35rem 0.75rem;
@@ -886,40 +1005,6 @@ export function Play() {
           opacity: 0.45;
           cursor: not-allowed;
         }
-        .outcome-loading {
-          margin: 0.65rem 0 0;
-          font-size: 0.82rem;
-          font-style: italic;
-          opacity: 0.75;
-          color: ${theme.onSurface};
-        }
-        .outcome-fallback {
-          margin: 0.65rem 0 0;
-          font-size: 0.78rem;
-          opacity: 0.7;
-          color: ${theme.onSurface};
-        }
-        .outcome-art {
-          margin-top: 0.75rem;
-          border-radius: 14px;
-          overflow: hidden;
-          border: 2px solid color-mix(in srgb, ${theme.outline} 45%, transparent);
-          box-shadow: 0 8px 22px color-mix(in srgb, ${theme.onSurface} 14%, transparent);
-        }
-        .outcome-art img {
-          display: block;
-          width: 100%;
-          height: auto;
-          vertical-align: middle;
-        }
-        .outcome-caption {
-          display: block;
-          padding: 0.35rem 0.5rem;
-          font-size: 0.68rem;
-          font-weight: 700;
-          background: color-mix(in srgb, ${theme.surfaceHigh} 90%, transparent);
-          color: color-mix(in srgb, ${theme.onSurface} 75%, gray);
-        }
         .neurobot {
           display: flex;
           flex-direction: column;
@@ -1048,6 +1133,74 @@ export function Play() {
           border-radius: 3px;
           box-shadow: 4px 7px 18px rgba(0, 0, 0, 0.14);
           transform: rotate(2deg);
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.4rem;
+          min-width: 0;
+        }
+        .ai-scenario-polaroid-frame {
+          position: relative;
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        .ai-scenario-polaroid-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.62);
+          backdrop-filter: blur(2px);
+        }
+        .ai-scenario-polaroid-spinner {
+          width: 28px;
+          height: 28px;
+          border: 3px solid color-mix(in srgb, ${theme.primary} 22%, transparent);
+          border-top-color: ${theme.primary};
+          border-radius: 50%;
+          animation: ai-scenario-polaroid-spin 0.7s linear infinite;
+        }
+        @keyframes ai-scenario-polaroid-spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .ai-scenario-polaroid-caption {
+          display: block;
+          margin: 0;
+          padding: 0 0.1rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          font-style: italic;
+          line-height: 1.35;
+          opacity: 0.78;
+          color: #3d3904;
+          text-align: center;
+        }
+        .ai-scenario-polaroid-caption--fallback {
+          font-style: normal;
+          font-weight: 600;
+          opacity: 0.72;
+          color: color-mix(in srgb, ${theme.onSurface} 72%, #5c5310);
+        }
+        .ai-scenario-polaroid-caption-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 0.28rem;
+          align-items: center;
+        }
+        .ai-scenario-polaroid-detail {
+          display: block;
+          margin: 0;
+          padding: 0 0.15rem;
+          font-size: 0.58rem;
+          font-weight: 600;
+          line-height: 1.38;
+          opacity: 0.78;
+          color: color-mix(in srgb, ${theme.onSurface} 78%, #5c5310);
+          text-align: center;
+          max-width: 280px;
         }
         .ai-scenario-polaroid-img {
           display: block;
@@ -1100,6 +1253,19 @@ export function Play() {
           padding: 0.7425rem 0.7425rem 1.485rem;
           border-radius: 3.6px;
           box-shadow: 5.4px 9px 24.3px rgba(0, 0, 0, 0.14);
+          gap: 0.54rem;
+        }
+        .ai-scenario-hero--enlarged .ai-scenario-polaroid-spinner {
+          width: 37.8px;
+          height: 37.8px;
+          border-width: 4.05px;
+        }
+        .ai-scenario-hero--enlarged .ai-scenario-polaroid-caption {
+          font-size: 0.8775rem;
+        }
+        .ai-scenario-hero--enlarged .ai-scenario-polaroid-detail {
+          font-size: 0.783rem;
+          max-width: 378px;
         }
         .ai-scenario-hero--enlarged .ai-scenario-polaroid-img {
           max-width: 297px;
