@@ -22,42 +22,46 @@
           "choices": [
             "Mute suggestions until coffee",
             "Accept all and claim originality",
-            "Ask it to justify each bullet"
+            "Ask it to justify each bullet",
+            "Let it draft your OKRs too — efficiency!"
           ],
-          "score_delta_by_choice": [2, -8, 4]
+          "score_delta_by_choice": [2, -8, 4, -6]
         },
         {
           "id": 1,
           "choices": [
             "Schedule a human review gate",
             "Ship Friday and iterate never",
-            "Rename the chaos to 'iteration'"
+            "Rename the chaos to 'iteration'",
+            "Automate the gate with a second copilot"
           ],
-          "score_delta_by_choice": [5, -10, -3]
+          "score_delta_by_choice": [5, -10, -3, -12]
         },
         {
           "id": 2,
           "choices": [
             "Escalate to legal with screenshots",
             "Let the model moderate itself",
-            "Take the afternoon off"
+            "Take the afternoon off",
+            "CC the entire company on the incident thread"
           ],
-          "score_delta_by_choice": [6, -12, 8]
+          "score_delta_by_choice": [6, -12, 8, -7]
         },
         {
           "id": 3,
           "choices": [
             "Declare victory and close the laptop",
             "Open three more tabs",
-            "Write a post mortem titled Lessons Learned"
+            "Write a post mortem titled Lessons Learned",
+            "Reply-all with only a thumbs-up emoji"
           ],
-          "score_delta_by_choice": [10, -5, 7]
+          "score_delta_by_choice": [10, -5, 7, -9]
         }
       ]
     },
     {
       "slug": "hallucination",
-      "title": "Hallucination",
+      "title": "AI Hallucination",
       "icon": "✨",
       "tagline": "Confidence is high. Accuracy is negotiable.",
       "body": "Facts assemble themselves from vibes. Hold the clipboard steady while reality negotiates.",
@@ -65,29 +69,49 @@
         {
           "id": 0,
           "static_line": "The deck cites a study that sounds prestigious. No one can find the PDF.",
-          "choices": ["Demand citations", "Present anyway", "Blame the intern"],
-          "score_delta_by_choice": [5, -8, -4]
+          "choices": [
+            "Demand citations",
+            "Present anyway",
+            "Blame the intern",
+            "Add a plausible-looking DOI and move on"
+          ],
+          "score_delta_by_choice": [5, -8, -4, -14]
         },
         {
           "id": 1,
-          "choices": ["Fact-check live", "Add more charts", "Pivot to vision"],
-          "score_delta_by_choice": [6, -3, -6]
+          "choices": [
+            "Fact-check live",
+            "Add more charts",
+            "Pivot to vision",
+            "Cite a viral tweet as peer review"
+          ],
+          "score_delta_by_choice": [6, -3, -6, -11]
         },
         {
           "id": 2,
-          "choices": ["Issue a correction", "Double down", "Ghost the thread"],
-          "score_delta_by_choice": [8, -10, -2]
+          "choices": [
+            "Issue a correction",
+            "Double down",
+            "Ghost the thread",
+            "Rebrand the error as 'preview truth'"
+          ],
+          "score_delta_by_choice": [8, -10, -2, -15]
         },
         {
           "id": 3,
-          "choices": ["Archive humbly", "Mint an NFT of the slide", "Take a walk"],
-          "score_delta_by_choice": [10, -15, 7]
+          "choices": [
+            "Archive humbly",
+            "Mint an NFT of the slide",
+            "Take a walk",
+            "Host a webinar called Truth 2.0"
+          ],
+          "score_delta_by_choice": [10, -15, 7, -8]
         }
       ]
     },
     {
       "slug": "ethics",
-      "title": "Ethics",
+      "title": "AI Ethic",
       "icon": "⚖️",
       "tagline": "The trolley has a Terms of Service update.",
       "body": "Principles enter the chat. Stakeholders bring slide decks. You bring the uncomfortable questions.",
@@ -95,23 +119,43 @@
         {
           "id": 0,
           "static_line": "Leadership asks you to optimize engagement using data you shouldn't have.",
-          "choices": ["Refuse quietly", "Compliance theater", "Escalate in writing"],
-          "score_delta_by_choice": [6, -10, 8]
+          "choices": [
+            "Refuse quietly",
+            "Compliance theater",
+            "Escalate in writing",
+            "Anonymize badly and ship anyway"
+          ],
+          "score_delta_by_choice": [6, -10, 8, -18]
         },
         {
           "id": 1,
-          "choices": ["Propose a lighter metric", "Ship the dark pattern", "Schedule ethics office hours"],
-          "score_delta_by_choice": [5, -12, 7]
+          "choices": [
+            "Propose a lighter metric",
+            "Ship the dark pattern",
+            "Schedule ethics office hours",
+            "A/B test which guilt message converts best"
+          ],
+          "score_delta_by_choice": [5, -12, 7, -16]
         },
         {
           "id": 2,
-          "choices": ["Document dissent", "Vote present", "Mute yourself forever"],
-          "score_delta_by_choice": [8, -4, -6]
+          "choices": [
+            "Document dissent",
+            "Vote present",
+            "Mute yourself forever",
+            "File it under 'delightful surprise'"
+          ],
+          "score_delta_by_choice": [8, -4, -6, -14]
         },
         {
           "id": 3,
-          "choices": ["Walk away proud", "Accept the mug", "Leak the slide deck"],
-          "score_delta_by_choice": [12, 3, -20]
+          "choices": [
+            "Walk away proud",
+            "Accept the mug",
+            "Leak the slide deck",
+            "Announce you're 'sunsetting' your conscience"
+          ],
+          "score_delta_by_choice": [12, 3, -20, -22]
         }
       ]
     }

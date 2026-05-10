@@ -12,8 +12,21 @@ export type SessionSnapshot = {
   phase: string;
   turn_index: number;
   neural_score: number;
+  answer_mode?: "free_text" | "ai_options" | null;
   choices: string[];
   static_line?: string | null;
+  scenario_art_status?: string;
+  scenario_art_b64?: string | null;
+};
+
+export type AnswerModeResponse = {
+  phase: string;
+  answer_mode: "free_text" | "ai_options";
+  neural_score: number;
+  turn_index: number;
+  choices: string[];
+  static_line?: string | null;
+  ai_options_penalty?: number;
 };
 
 export type StatePatch = {
@@ -48,6 +61,28 @@ export async function createSession(slug: string): Promise<SessionSnapshot> {
   });
   if (!res.ok) throw new Error("failed_session");
   return res.json() as Promise<SessionSnapshot>;
+}
+
+export async function submitAnswerMode(
+  sessionId: string,
+  mode: "free_text" | "ai_options",
+): Promise<AnswerModeResponse> {
+  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/answer-mode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (!res.ok) throw new Error("failed_answer_mode");
+  return res.json() as Promise<AnswerModeResponse>;
+}
+
+export async function submitFreeText(sessionId: string, text: string): Promise<void> {
+  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/free-text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error("failed_free_text");
 }
 
 export async function submitChoice(sessionId: string, choiceIndex: number): Promise<void> {
@@ -115,4 +150,35 @@ export async function consumeSessionStream(
   if (buffer.trim()) {
     parseBlocks(buffer + "\n\n");
   }
+}
+
+export async function neurobotChat(
+  sessionId: string,
+  message: string,
+): Promise<{ reply: string; neural_score: number }> {
+  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/neurobot-chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw new Error("failed_neurobot");
+  return res.json() as Promise<{ reply: string; neural_score: number }>;
+}
+
+export async function fetchOutcomeImage(sessionId: string): Promise<{
+  status: string;
+  b64: string | null;
+}> {
+  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/outcome-image`);
+  if (!res.ok) throw new Error("failed_outcome_image");
+  return res.json() as Promise<{ status: string; b64: string | null }>;
+}
+
+export async function fetchScenarioArt(sessionId: string): Promise<{
+  status: string;
+  b64: string | null;
+}> {
+  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/scenario-art`);
+  if (!res.ok) throw new Error("failed_scenario_art");
+  return res.json() as Promise<{ status: string; b64: string | null }>;
 }

@@ -4,12 +4,14 @@ import { Help } from "./Help";
 import { Landing } from "./Landing";
 import { Play } from "./Play";
 import { Settings } from "./Settings";
+import { TopicSelect } from "./TopicSelect";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/topics" element={<TopicSelect />} />
         <Route path="/play/:slug" element={<Play />} />
         <Route path="/archives" element={<Archives />} />
         <Route path="/settings" element={<Settings />} />

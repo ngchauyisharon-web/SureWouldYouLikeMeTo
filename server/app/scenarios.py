@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 
 
@@ -28,7 +27,6 @@ def _repo_shared_path() -> Path:
     return Path(__file__).resolve().parents[2] / "shared" / "scenarios.json"
 
 
-@lru_cache
 def load_scenarios() -> tuple[dict, dict[str, ScenarioDef]]:
     path = _repo_shared_path()
     raw = json.loads(path.read_text(encoding="utf-8"))
