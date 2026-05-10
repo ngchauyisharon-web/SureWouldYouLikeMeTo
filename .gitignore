@@ -5,3 +5,9 @@ node_modules/
 client/dist/
 .env
 
+server/scripts/output-*.jpeg
+# Third-party / promotional reference art (keep locally; override with `git add -f` if you intend to commit)
+server/scripts/references/*.png
+server/scripts/references/*.jpg
+server/scripts/references/*.jpeg
+

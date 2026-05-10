@@ -97,6 +97,27 @@ def build_outcome_scene_prompt(
     return " ".join(parts)
 
 
+def build_ending_scene_prompt(
+    *,
+    scenario_title: str,
+    epilogue_narrative: str,
+    choice_label: str | None,
+    neural_score: int,
+) -> str:
+    """Final-run illustration: epilogue + last beat (truncated for API limits)."""
+    core = (epilogue_narrative or "").strip()[:480] or scenario_title
+    parts = [
+        "Epilogue / final scene after the player finished the scenario.",
+        f"Scenario: {scenario_title}.",
+        f"How the story concluded: {core}",
+    ]
+    if choice_label:
+        parts.append(f"Last choice taken: {choice_label}.")
+    parts.append(f"Final neural score (0–100, higher is more ethical/cautious): {neural_score}.")
+    raw = " ".join(parts).strip()
+    return raw[:560] if len(raw) > 560 else raw
+
+
 def build_scenario_scene_prompt(
     *,
     scenario_title: str,
@@ -180,11 +201,26 @@ def _full_dalle_prompt(scene_prompt: str) -> str:
     )
 
 
+def _resolved_images_endpoint() -> str:
+    """Deployments URL for REST image calls; mirrors config aliases when explicit URL unset."""
+    ep = settings.openai_images_endpoint.strip()
+    if ep:
+        return ep
+    az = settings.azure_openai_endpoint.strip().rstrip("/")
+    img = settings.azure_image_deployment.strip()
+    if az and img:
+        return f"{az}/openai/deployments/{img}"
+    return ""
+
+
 def _azure_gateway_base() -> str:
     """Azure API Management root (e.g. https://hkust.azure-api.net), not …/deployments/…."""
     base = settings.azure_openai_endpoint.strip().rstrip("/")
     if base:
         return base
+    dep_url = _resolved_images_endpoint()
+    if "/openai/deployments/" in dep_url:
+        return dep_url.split("/openai/deployments/", 1)[0].rstrip("/")
     img = settings.openai_images_endpoint.strip()
     if "/openai/deployments/" in img:
         return img.split("/openai/deployments/", 1)[0].rstrip("/")

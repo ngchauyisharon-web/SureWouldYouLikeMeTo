@@ -51,6 +51,7 @@ export type StatePatch = {
   scenario_art_detail?: string | null;
   scenario_art_turn_index?: number | null;
   choices_error?: string | null;
+  outcome_image_status?: string;
 };
 
 function apiPrefix(): string {
@@ -120,7 +121,8 @@ export async function consumeSessionStream(
   handlers: {
     onToken: (t: string) => void;
     onStatePatch: (p: StatePatch) => void;
-    onDone: () => void;
+    /** Includes the last `state_patch` payload from this stream so callers can read `ended` reliably. */
+    onDone: (lastPatch?: StatePatch) => void;
     onError: (msg: string) => void;
   },
 ): Promise<void> {
@@ -132,6 +134,7 @@ export async function consumeSessionStream(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let lastStatePatch: StatePatch | undefined;
 
   const parseBlocks = (text: string) => {
     const blocks = text.split("\n\n");
@@ -149,9 +152,10 @@ export async function consumeSessionStream(
         if (eventName === "token" && typeof payload.t === "string") {
           handlers.onToken(payload.t);
         } else if (eventName === "state_patch") {
-          handlers.onStatePatch(payload as unknown as StatePatch);
+          lastStatePatch = payload as unknown as StatePatch;
+          handlers.onStatePatch(lastStatePatch);
         } else if (eventName === "done") {
-          handlers.onDone();
+          handlers.onDone(lastStatePatch);
         } else if (eventName === "error") {
           handlers.onError(String(payload.message ?? "error"));
         }
@@ -199,5 +203,19 @@ export async function fetchScenarioArt(sessionId: string): Promise<{
     b64: string | null;
     detail?: string | null;
     scenario_art_turn_index?: number | null;
+  }>;
+}
+
+export async function fetchOutcomeImage(sessionId: string): Promise<{
+  status: string;
+  b64: string | null;
+  detail?: string | null;
+}> {
+  const res = await fetch(`${apiPrefix()}/api/sessions/${sessionId}/outcome-image`);
+  if (!res.ok) throw new Error("failed_outcome_image");
+  return res.json() as Promise<{
+    status: string;
+    b64: string | null;
+    detail?: string | null;
   }>;
 }

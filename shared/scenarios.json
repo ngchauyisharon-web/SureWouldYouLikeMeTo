@@ -13,47 +13,47 @@
       "slug": "ai_overuse",
       "title": "AI Overuse",
       "icon": "⚡",
-      "tagline": "Too many drafts, too little shame.",
-      "body": "Metrics demand velocity. Your neural partner suggests twelve more variants before lunch.",
+      "tagline": "Your inbox runs you now.",
+      "body": "Monday hits and you're already three tabs deep in drafts you didn't write. The machine says \"professional tone\"—your soul says \"please stop.\"",
       "turns": [
         {
           "id": 0,
-          "static_line": "Quarterly OKRs blink red. Your copilot offers seventeen bullet points before you've finished saying good morning.",
+          "static_line": "Your boss wants the quarterly update \"by EOD.\" Copilot has seventeen bullet points ready before you've finished typing \"Hi team.\"",
           "choices": [
-            "Mute suggestions until coffee",
-            "Accept all and claim originality",
-            "Ask it to justify each bullet",
-            "Let it draft your OKRs too — efficiency!"
+            "Mute the robot until you've had coffee",
+            "Send Copilot's draft and hope nobody reads it",
+            "Ask it to explain every bullet like you're grading homework",
+            "Let AI write your OKRs too—what could go wrong?"
           ],
           "score_delta_by_choice": [2, -8, 4, -6]
         },
         {
           "id": 1,
           "choices": [
-            "Schedule a human review gate",
-            "Ship Friday and iterate never",
-            "Rename the chaos to 'iteration'",
-            "Automate the gate with a second copilot"
+            "Institute a real human read-before-send rule",
+            "Ship Friday and pretend \"iterate\" means \"never\"",
+            "Rename the mess \"agile storytelling\"",
+            "Add a second AI to check the first AI"
           ],
           "score_delta_by_choice": [5, -10, -3, -12]
         },
         {
           "id": 2,
           "choices": [
-            "Escalate to legal with screenshots",
-            "Let the model moderate itself",
-            "Take the afternoon off",
-            "CC the entire company on the incident thread"
+            "Forward receipts to Legal with receipts",
+            "Let an AI moderate what the AI wrote",
+            "Log off and touch grass",
+            "CC the whole company so drama becomes democracy"
           ],
           "score_delta_by_choice": [6, -12, 8, -7]
         },
         {
           "id": 3,
           "choices": [
-            "Declare victory and close the laptop",
-            "Open three more tabs",
-            "Write a post mortem titled Lessons Learned",
-            "Reply-all with only a thumbs-up emoji"
+            "Close the laptop like you mean it",
+            "Open three more tabs \"just to compare\"",
+            "Write Lessons Learned (Lesson 1: never again)",
+            "Reply-all with a thumbs-up and vanish"
           ],
           "score_delta_by_choice": [10, -5, 7, -9]
         }
@@ -63,47 +63,47 @@
       "slug": "hallucination",
       "title": "AI Hallucination",
       "icon": "✨",
-      "tagline": "Confidence is high. Accuracy is negotiable.",
-      "body": "Facts assemble themselves from vibes. Hold the clipboard steady while reality negotiates.",
+      "tagline": "That slide cites Harvard. Harvard has never heard of that slide.",
+      "body": "You're presenting in twenty minutes. The deck cites a study that feels prestigious. Nobody—not even Google—can find the PDF.",
       "turns": [
         {
           "id": 0,
-          "static_line": "The deck cites a study that sounds prestigious. No one can find the PDF.",
+          "static_line": "Slide 7 says \"Harvard, 2023.\" Harvard would like a word. You would like a panic button.",
           "choices": [
-            "Demand citations",
-            "Present anyway",
-            "Blame the intern",
-            "Add a plausible-looking DOI and move on"
+            "Pause the meeting and hunt for a real source",
+            "Present anyway—confidence is a lifestyle",
+            "Blame the intern (they'll survive)",
+            "Add a fake DOI and keep walking"
           ],
           "score_delta_by_choice": [5, -8, -4, -14]
         },
         {
           "id": 1,
           "choices": [
-            "Fact-check live",
-            "Add more charts",
-            "Pivot to vision",
-            "Cite a viral tweet as peer review"
+            "Fact-check live like a brave idiot",
+            "Add more charts until nobody asks questions",
+            "Pivot to \"vision\" when facts get inconvenient",
+            "Cite a viral tweet as \"community peer review\""
           ],
           "score_delta_by_choice": [6, -3, -6, -11]
         },
         {
           "id": 2,
           "choices": [
-            "Issue a correction",
-            "Double down",
-            "Ghost the thread",
-            "Rebrand the error as 'preview truth'"
+            "Send a clean correction",
+            "Double down—backpedaling is for cowards",
+            "Ghost the thread and move cities",
+            "Call the error a \"preview of truth\""
           ],
           "score_delta_by_choice": [8, -10, -2, -15]
         },
         {
           "id": 3,
           "choices": [
-            "Archive humbly",
-            "Mint an NFT of the slide",
-            "Take a walk",
-            "Host a webinar called Truth 2.0"
+            "Archive the deck and learn something",
+            "Mint an NFT of the worst slide",
+            "Take a walk without your phone",
+            "Host a webinar: Truth 2.0 ( slides TBD )"
           ],
           "score_delta_by_choice": [10, -15, 7, -8]
         }
@@ -113,49 +113,49 @@
       "slug": "ethics",
       "title": "AI Ethic",
       "icon": "⚖️",
-      "tagline": "The trolley has a Terms of Service update.",
-      "body": "Principles enter the chat. Stakeholders bring slide decks. You bring the uncomfortable questions.",
+      "tagline": "Brilliant paper. Suspiciously frictionless.",
+      "body": "Your student Elias submits a dissertation so smooth it practically hums. Then the detector clocks it: 99.8% AI. You're not mad—you're tired. Welcome to teaching in the cheat-code era.",
       "turns": [
         {
           "id": 0,
-          "static_line": "Leadership asks you to optimize engagement using data you shouldn't have.",
+          "static_line": "The committee wants a hero move by Friday. Elias wants partial credit for \"tool literacy.\" You want one afternoon without a moral plot twist.",
           "choices": [
-            "Refuse quietly",
-            "Compliance theater",
-            "Escalate in writing",
-            "Anonymize badly and ship anyway"
+            "Report him—integrity hurts but stays honest",
+            "Pass him—the work's brilliant either way",
+            "AI-grade his AI so the universe folds in on itself",
+            "\"Burn the university\" energy—declare higher education a rounding error"
           ],
-          "score_delta_by_choice": [6, -10, 8, -18]
+          "score_delta_by_choice": [6, -8, -12, -18]
         },
         {
           "id": 1,
           "choices": [
-            "Propose a lighter metric",
-            "Ship the dark pattern",
-            "Schedule ethics office hours",
-            "A/B test which guilt message converts best"
+            "Hold a calm review with humans who've read the paper",
+            "Quietly bump his grade and avoid eye contact",
+            "Spin up an ethics committee… staffed by chatbots",
+            "Leak the saga to Twitter for crowd-sourced justice"
           ],
-          "score_delta_by_choice": [5, -12, 7, -16]
+          "score_delta_by_choice": [8, -10, -14, -16]
         },
         {
           "id": 2,
           "choices": [
-            "Document dissent",
-            "Vote present",
-            "Mute yourself forever",
-            "File it under 'delightful surprise'"
+            "Document everything—emails are your hobby now",
+            "Let Elias defend live with no notes (gulp)",
+            "Offer rewrite credit instead of a firing squad",
+            "Suggest everyone pretend it's performance art"
           ],
-          "score_delta_by_choice": [8, -4, -6, -14]
+          "score_delta_by_choice": [7, 5, 6, -8]
         },
         {
           "id": 3,
           "choices": [
-            "Walk away proud",
-            "Accept the mug",
-            "Leak the slide deck",
-            "Announce you're 'sunsetting' your conscience"
+            "Close the case with clarity—even if it's awkward",
+            "Award \"Most Creative Use of Ctrl+V\"",
+            "Recommend policy so the next prof isn't you",
+            "Retire to a cabin with zero Wi‑Fi"
           ],
-          "score_delta_by_choice": [12, 3, -20, -22]
+          "score_delta_by_choice": [12, -6, 10, 9]
         }
       ]
     }

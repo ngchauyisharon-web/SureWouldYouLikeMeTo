@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   consumeSessionStream,
   createSession,
+  fetchOutcomeImage,
   fetchScenarioArt,
   neurobotChat,
   submitAnswerMode,
@@ -165,6 +166,8 @@ export function Play() {
   const [scenarioHeroB64, setScenarioHeroB64] = useState<string | null>(null);
   const [scenarioHeroArtPhase, setScenarioHeroArtPhase] = useState<ScenarioPolaroidGenerationPhase>("static");
   const [scenarioArtFailDetail, setScenarioArtFailDetail] = useState<string | null>(null);
+  const [outcomePhase, setOutcomePhase] = useState<"hidden" | "loading" | "ready" | "failed">("hidden");
+  const [outcomeB64, setOutcomeB64] = useState<string | null>(null);
 
   const snapRef = useRef<SessionSnapshot | null>(null);
   snapRef.current = snap;
@@ -173,6 +176,8 @@ export function Play() {
     setScenarioHeroB64(null);
     setScenarioHeroArtPhase("static");
     setScenarioArtFailDetail(null);
+    setOutcomePhase("hidden");
+    setOutcomeB64(null);
   }, [slug]);
 
   useEffect(() => {
@@ -332,6 +337,40 @@ export function Play() {
     }
   }, []);
 
+  const pollOutcomeFor = useCallback(async (sessionId: string) => {
+    setOutcomePhase("loading");
+    setOutcomeB64(null);
+    let fetchErrors = 0;
+    for (let i = 0; i < 90; i++) {
+      try {
+        const r = await fetchOutcomeImage(sessionId);
+        fetchErrors = 0;
+        if (r.status === "ready" && r.b64) {
+          setOutcomeB64(r.b64);
+          setOutcomePhase("ready");
+          return;
+        }
+        if (r.status === "failed") {
+          setOutcomePhase("failed");
+          return;
+        }
+        if (r.status === "idle") {
+          setOutcomePhase("hidden");
+          setOutcomeB64(null);
+          return;
+        }
+      } catch {
+        fetchErrors++;
+        if (fetchErrors >= 8) {
+          setOutcomePhase("failed");
+          return;
+        }
+      }
+      await new Promise((x) => setTimeout(x, 2000));
+    }
+    setOutcomePhase("failed");
+  }, []);
+
   const runStream = useCallback(async () => {
     const cur = snapRef.current;
     if (!cur) return;
@@ -390,9 +429,11 @@ export function Play() {
             }
           }
         },
-        onDone: () => {
+        onDone: (lastPatch) => {
           setNarrative((prev) => stripScoreLine(prev));
           setStreaming(false);
+          const sid = snapRef.current?.session_id;
+          if (sid && lastPatch?.ended) void pollOutcomeFor(sid);
         },
         onError: (msg) => {
           setStreamErr(msg);
@@ -403,7 +444,7 @@ export function Play() {
       setStreamErr("stream_failed");
       setStreaming(false);
     }
-  }, []);
+  }, [pollOutcomeFor]);
 
   const sendNeuroInvestigate = async () => {
     const q = neuroAsk.trim();
@@ -478,6 +519,16 @@ export function Play() {
     snap.phase === "awaiting_choice" && snap.answer_mode === "ai_options" && choices.length > 0;
   const awaitingFree = snap.phase === "awaiting_choice" && snap.answer_mode === "free_text";
 
+  /** No narrative yet on free-text flow — skip empty dialogue shell (hint is plain text outside). */
+  const freeTextAwaitingEmpty =
+    awaitingFree &&
+    !narrative &&
+    !streaming &&
+    !ended &&
+    !achievement &&
+    outcomePhase === "hidden" &&
+    !streamErr;
+
   /** Dock NeuroBot chat on the right whenever the player has picked a play style and the run is ongoing. */
   const showNeuroDock =
     (snap.answer_mode === "free_text" || snap.answer_mode === "ai_options") &&
@@ -489,7 +540,7 @@ export function Play() {
     !narrative &&
     !streaming &&
     !ended &&
-    (awaitingMode || awaitingMc)
+    (awaitingMode || awaitingMc || freeTextAwaitingEmpty)
   );
   const showDialogue =
     !!achievement || !!(staticLine && !showScenarioHero) || showStreamArea || !!streamErr;
@@ -555,8 +606,8 @@ export function Play() {
     </section>
   ) : null;
 
-  const dialogueSection = showDialogue ? (
-    <section className="dialogue">
+  const dialogueBody = (
+    <>
       {achievement ? (
         <div className="achievement">
           Achievement unlocked: <strong>{achievement}</strong>
@@ -570,17 +621,32 @@ export function Play() {
       {showStreamArea ? (
         <div className="stream-box">
           {narrative || (streaming ? <span className="cursor">▍</span> : null)}
-          {!narrative && !streaming && !ended && awaitingFree ? (
-            <span className="hint">
-              Chat with NeuroBot in the green panel on the right if you want, then send your final answer below.
-            </span>
-          ) : null}
           {ended ? <p className="fin">Run complete. Your conscience may require a reboot.</p> : null}
         </div>
       ) : null}
+      {outcomePhase === "loading" ? <p className="outcome-loading">Generating outcome illustration…</p> : null}
+      {outcomePhase === "ready" && outcomeB64 ? (
+        <div className="outcome-art">
+          <img src={`data:image/png;base64,${outcomeB64}`} alt="Illustration of this story beat" />
+          <span className="outcome-caption">Ending illustration</span>
+        </div>
+      ) : null}
+      {outcomePhase === "failed" ? (
+        <p className="outcome-fallback">Illustration unavailable this round (offline API or generation skipped).</p>
+      ) : null}
       {streamErr ? <p className="err">{streamErr}</p> : null}
-    </section>
-  ) : null;
+    </>
+  );
+
+  const dialogueSection =
+    showDialogue && !showNeuroDock ? <section className="dialogue">{dialogueBody}</section> : null;
+
+  const dialogueSectionUnderDock =
+    showDialogue && showNeuroDock ? (
+      <section className="dialogue dialogue--under-dock" aria-label="Narrator response">
+        {dialogueBody}
+      </section>
+    ) : null;
 
   const finalAnswerBlock = awaitingFree ? (
     <div className="neurobot">
@@ -678,11 +744,23 @@ export function Play() {
         <div className="play-neuro-layout">
           <div className="play-neuro-main">
             {heroBanner}
+            {showNeuroDock &&
+            awaitingFree &&
+            !narrative &&
+            !streaming &&
+            !ended ? (
+              <p className="free-text-neuro-hint">
+                Chat with NeuroBot in the green panel on the right if you want, then send your final answer below.
+              </p>
+            ) : null}
             {aiOptionsStage}
             {dialogueSection}
             {finalAnswerBlock}
           </div>
-          {neuroDockAside}
+          <div className="play-neuro-rail">
+            {neuroDockAside}
+            {dialogueSectionUnderDock}
+          </div>
         </div>
       ) : (
         <>
@@ -740,6 +818,16 @@ export function Play() {
           align-items: flex-start;
           gap: 0.5rem;
           width: 100%;
+        }
+        .play-neuro-rail {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.75rem;
+          flex-shrink: 0;
+          width: min(42vmin, 340px);
+          max-width: 100%;
+          margin-left: 2.35rem;
         }
         .play-neuro-main {
           flex: 1;
@@ -846,14 +934,45 @@ export function Play() {
           box-shadow: 0 18px 40px color-mix(in srgb, ${theme.onSurface} 12%, transparent);
           min-height: 120px;
         }
+        .dialogue--under-dock {
+          min-height: 8rem;
+          margin: 0;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 1.125rem 0.95rem;
+          font-size: 1.0625rem;
+          border: 3px solid #a865b5;
+          box-shadow: 0 14px 32px rgba(168, 101, 181, 0.28), 0 0 0 1px rgba(168, 101, 181, 0.35) inset;
+        }
+        .dialogue--under-dock .stream-box {
+          min-height: 3rem;
+          font-size: 1rem;
+          line-height: 1.55;
+        }
+        .dialogue--under-dock .static-line {
+          font-size: 1em;
+        }
+        .dialogue--under-dock .fin {
+          font-size: 1em;
+        }
+        .dialogue--under-dock .achievement {
+          font-size: 0.92em;
+        }
         .static-line { margin: 0 0 0.65rem; line-height: 1.45; color: ${theme.onSurface}; }
+        .free-text-neuro-hint {
+          margin: 0;
+          font-size: 0.88rem;
+          line-height: 1.45;
+          font-style: italic;
+          opacity: 0.72;
+          color: color-mix(in srgb, ${theme.onSurface} 88%, gray);
+        }
         .stream-box {
           font-size: 0.95rem;
           line-height: 1.5;
           min-height: 3rem;
           white-space: pre-wrap;
         }
-        .hint { opacity: 0.65; font-style: italic; }
         .cursor { animation: blink 1s step-end infinite; color: ${theme.secondary}; }
         @keyframes blink { 50% { opacity: 0; } }
         .fin { margin: 0.5rem 0 0; font-weight: 700; color: ${theme.secondary}; }
@@ -880,11 +999,12 @@ export function Play() {
         }
         .neuro-investigate--dock {
           flex-shrink: 0;
+          margin-left: 0;
           box-sizing: border-box;
-          width: min(42vmin, 340px);
+          width: 100%;
           aspect-ratio: 1 / 1;
           max-width: 100%;
-          padding: 0.45rem 0.5rem;
+          padding: 0.52rem 0.58rem;
           border-radius: 14px;
           background: linear-gradient(165deg, #acd8a7 0%, #9dc896 42%, #87ae73 100%);
           border: 3px solid #5d7d54;
@@ -896,13 +1016,13 @@ export function Play() {
         }
         .neuro-investigate--dock .neuro-investigate-title {
           color: #2f4a2c;
-          font-size: 0.8rem;
+          font-size: 0.93rem;
         }
         .neuro-investigate--dock .neuro-investigate-sub {
           color: #3d5238;
           margin-bottom: 0.4rem;
-          font-size: 0.66rem;
-          line-height: 1.35;
+          font-size: 0.76rem;
+          line-height: 1.38;
         }
         .neuro-thread {
           display: flex;
@@ -931,6 +1051,7 @@ export function Play() {
         .neuro-row-bot .neuro-meta { color: ${theme.primary}; }
         .neuro-investigate--dock .neuro-meta {
           color: #4a6b44;
+          font-size: 0.72rem;
         }
         .neuro-investigate--dock .neuro-row-user .neuro-meta {
           color: #2f4a2c;
@@ -960,11 +1081,15 @@ export function Play() {
           background: #5d7d54;
           color: #f5faf4;
           border: 2px solid #4a6844;
+          font-size: 0.93rem;
+          line-height: 1.42;
         }
         .neuro-investigate--dock .neuro-bubble-bot {
           background: #eef6ec;
           color: #2f4a2c;
           border: 2px solid #87ae73;
+          font-size: 0.93rem;
+          line-height: 1.42;
         }
         .neuro-ask-row {
           display: flex;
@@ -983,7 +1108,8 @@ export function Play() {
         .neuro-investigate--dock .neuro-ask-input {
           border-color: #6d9665;
           background: #f5faf4;
-          font-size: 0.78rem;
+          font-size: 0.88rem;
+          padding: 0.55rem 0.7rem;
         }
         .neuro-ask-btn {
           flex-shrink: 0;
@@ -1000,6 +1126,8 @@ export function Play() {
           background: #87ae73;
           border-color: #4d6848;
           color: #1e2e1c;
+          font-size: 0.85rem;
+          padding: 0.55rem 0.9rem;
         }
         .neuro-ask-btn:disabled {
           opacity: 0.45;
@@ -1413,8 +1541,14 @@ export function Play() {
           .play-neuro-layout {
             flex-direction: column;
           }
+          .play-neuro-rail {
+            width: min(100%, 360px);
+            margin-left: 0;
+            align-self: flex-end;
+          }
           .neuro-investigate--dock {
             width: min(100%, 360px);
+            margin-left: 0;
             align-self: flex-end;
             position: relative;
             top: auto;

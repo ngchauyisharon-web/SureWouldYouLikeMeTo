@@ -27,6 +27,7 @@ from app.game_engine import (
     store,
 )
 from app.image_gen import (
+    build_ending_scene_prompt,
     build_post_choice_scene_prompt,
     build_question_turn_prompt,
     generate_outcome_image,
@@ -97,9 +98,33 @@ async def _run_question_art_job(session_id: str, art_turn_index: int, scene_prom
             )
 
 
+async def _run_outcome_image_job(session_id: str, scene_prompt: str) -> None:
+    b64: str | None = None
+    detail: str | None = None
+    try:
+        out = await generate_outcome_image(scene_prompt)
+        b64 = out.b64
+        detail = out.detail
+    except Exception as e:
+        logging.getLogger(__name__).warning("outcome_image_job_error: %s", e)
+        detail = str(e).replace("\n", " ")[:280]
+    lock = store.lock_for(session_id)
+    async with lock:
+        st = store.get(session_id)
+        if st is None:
+            return
+        if b64:
+            st.outcome_image_b64 = b64
+            st.outcome_image_status = "ready"
+            st.outcome_image_detail = None
+        else:
+            st.outcome_image_status = "failed"
+            st.outcome_image_detail = detail
+
+
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "images_configured": is_image_generation_configured()}
 
 
 @app.get("/api/scenarios")
@@ -311,6 +336,20 @@ async def session_stream(session_id: str) -> StreamingResponse:
                 )
                 patch.update(scenario_art_begin_turn(state))
                 asyncio.create_task(_run_question_art_job(session_id, state.turn_index, scene))
+
+            if is_image_generation_configured() and patch.get("ended"):
+                scenario_for_art = effective_scenario(state)
+                ending_scene = build_ending_scene_prompt(
+                    scenario_title=scenario_for_art.title,
+                    epilogue_narrative=display_narrative,
+                    choice_label=choice_label,
+                    neural_score=state.neural_score,
+                )
+                state.outcome_image_status = "pending"
+                state.outcome_image_b64 = None
+                state.outcome_image_detail = None
+                patch["outcome_image_status"] = "pending"
+                asyncio.create_task(_run_outcome_image_job(session_id, ending_scene))
 
             yield sse_encode("state_patch", patch)
             yield sse_encode("done", {})

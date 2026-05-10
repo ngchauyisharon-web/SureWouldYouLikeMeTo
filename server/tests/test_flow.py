@@ -5,7 +5,10 @@ from app.main import app
 
 def test_health() -> None:
     client = TestClient(app)
-    assert client.get("/api/health").json() == {"status": "ok"}
+    body = client.get("/api/health").json()
+    assert body["status"] == "ok"
+    assert "images_configured" in body
+    assert isinstance(body["images_configured"], bool)
 
 
 def test_scenarios_list() -> None:
