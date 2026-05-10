@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
+from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +40,22 @@ class Settings(BaseSettings):
     azure_deployment_name: str = ""
     azure_embedding_deployment: str = ""
     azure_image_deployment: str = ""
+
+    # Image provider: "openai" = DALL·E / Azure images; "minimax" = MiniMax image-01 (requires MINIMAX_API_KEY).
+    image_provider: Literal["openai", "minimax"] = "openai"
+    minimax_api_key: str = ""
+    minimax_api_base: str = "https://api.minimax.io"
+    minimax_image_model: str = "image-01"
+    # Optional extra style phrase appended to image prompts (e.g. trademarked look if your gateway allows).
+    image_style_label: str = ""
+
+    @field_validator("image_provider", mode="before")
+    @classmethod
+    def _norm_image_provider(cls, v: object) -> str:
+        s = str(v or "openai").strip().lower()
+        if s in ("openai", "minimax"):
+            return s
+        return "openai"
 
     @model_validator(mode="after")
     def apply_azure_env_aliases(self):

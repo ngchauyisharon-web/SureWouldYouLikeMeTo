@@ -190,15 +190,47 @@ def build_post_choice_scene_prompt(
     return raw[:600] if len(raw) > 600 else raw
 
 
-def _full_dalle_prompt(scene_prompt: str) -> str:
-    # Avoid naming specific shows (moderation); keep the same crude-satirical look.
-    return (
-        "Bold satirical cutout cartoon art in the vein of edgy adult animated comedy. "
-        "Flat vector illustration, thick black outlines, bright colors, playful exaggerated characters. "
-        "Funny but not cruel. NO text or words anywhere in the image. "
-        "Single isolated scene on plain background. "
-        f"Scene: {scene_prompt}"
-    )
+# MiniMax `prompt` max length (see platform docs).
+MINIMAX_PROMPT_MAX = 1500
+
+# Shared visual recipe: explicit South Park series look (Trey Parker / Matt Stone cutout animation).
+_IMAGE_STYLE_CORE = (
+    "Render in the same visual style as the South Park TV series: 2D construction-paper and cardstock cutout "
+    "characters and props with bold black outer outlines, flat simple fills, almost no gradients or surface "
+    "texture, and no 3D depth cues. "
+    "Character design language: large round white eyes with tiny black dot pupils when eyes are visible; "
+    "small simple oval or line mouths; blocky geometric hair, hats, and clothing; squat proportions and "
+    "stiff puppet-like poses as if paper on a simple rig. "
+    "Adult animated satire comedy tone—playful and exaggerated, not photorealistic gore. "
+    "NOT photorealistic, NOT anime, NOT Pixar-style 3D, NOT painterly illustration. "
+    "NO text, letters, logos, captions, UI, or watermarks anywhere. "
+    "One clear readable tableau on a simple flat-color or plain paper-colored backdrop. "
+)
+
+
+def _image_style_prefix() -> str:
+    extra = settings.image_style_label.strip()
+    if extra:
+        return f"{_IMAGE_STYLE_CORE}{extra}. "
+    return _IMAGE_STYLE_CORE
+
+
+def _full_image_prompt(scene_prompt: str, *, max_total: int | None = None) -> str:
+    """Full prompt = fixed style prefix + scene description. Optionally cap length (MiniMax: 1500)."""
+    scene = (scene_prompt or "").strip().replace("\n", " ")
+    prefix = _image_style_prefix()
+    header = f"{prefix}Scene: "
+    body = f"{header}{scene}"
+    cap = max_total
+    if cap is None or len(body) <= cap:
+        return body
+    room = cap - len(header)
+    if room < 24:
+        return body[:cap]
+    trimmed = scene[:room]
+    if len(scene) > room:
+        trimmed = trimmed[: room - 1].rstrip() + "…"
+    return header + trimmed
 
 
 def _resolved_images_endpoint() -> str:
@@ -253,7 +285,7 @@ def generate_outcome_image_sdk_sync(scene_prompt: str) -> ImageGenResult:
         model = settings.azure_image_deployment.strip() or "dall-e-3"
         response = client.images.generate(
             model=model,
-            prompt=_full_dalle_prompt(scene_prompt),
+            prompt=_full_image_prompt(scene_prompt),
             size="1024x1024",
             n=1,
             response_format="b64_json",
@@ -279,12 +311,13 @@ def generate_outcome_image_sdk_sync(scene_prompt: str) -> ImageGenResult:
 
 
 def is_image_generation_configured() -> bool:
-    """True when polaroid jobs can run: API key plus image deployment URL and/or Azure SDK gateway."""
+    """True when polaroid jobs can run for the configured image provider."""
+    if settings.image_provider == "minimax":
+        return bool(settings.minimax_api_key.strip())
     if not settings.openai_api_key.strip():
         return False
     if settings.openai_images_endpoint.strip():
         return True
-    # HKUST-style: gateway + DALL·E deployment name (from env alias) even before explicit OPENAI_IMAGES_*.
     return bool(_azure_gateway_base().strip() and settings.azure_image_deployment.strip())
 
 
@@ -321,6 +354,93 @@ async def _parse_generation_json(
     return ImageGenResult(None, f"No b64_json or url in API row (keys={keys}).")
 
 
+def parse_minimax_image_payload(data: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    """Parse MiniMax `image_generation` JSON: (base64_image, error_detail, first_image_url_if_any)."""
+    log = logging.getLogger(__name__)
+    if not isinstance(data, dict):
+        return None, "MiniMax: response is not a JSON object.", None
+    base_resp = data.get("base_resp")
+    if isinstance(base_resp, dict):
+        code = base_resp.get("status_code")
+        msg = str(base_resp.get("status_msg") or "").strip()
+        if code not in (0, None):
+            detail = _safe_detail(f"MiniMax {code}: {msg}") if msg else _safe_detail(f"MiniMax error {code}")
+            return None, detail or f"MiniMax error {code}", None
+    block = data.get("data")
+    if not isinstance(block, dict):
+        log.warning("minimax_missing_data_block keys=%s", list(data.keys())[:12])
+        return None, "MiniMax: missing data object in response.", None
+    b64_list = block.get("image_base64")
+    if isinstance(b64_list, list):
+        for item in b64_list:
+            if isinstance(item, str) and item.strip():
+                return item.strip(), None, None
+    urls = block.get("image_urls")
+    if isinstance(urls, list) and urls and isinstance(urls[0], str) and urls[0].strip():
+        return None, None, urls[0].strip()
+    return None, "MiniMax: no image_base64 or image_urls in response.", None
+
+
+async def _generate_via_minimax(scene_prompt: str) -> ImageGenResult:
+    """MiniMax image-01 text-to-image (official REST)."""
+    log = logging.getLogger(__name__)
+    key = settings.minimax_api_key.strip()
+    base = settings.minimax_api_base.strip().rstrip("/") or "https://api.minimax.io"
+    if not key:
+        return ImageGenResult(None, "Missing MiniMax API key (MINIMAX_API_KEY).")
+
+    url = f"{base}/v1/image_generation"
+    prompt = _full_image_prompt(scene_prompt, max_total=MINIMAX_PROMPT_MAX)
+    model = settings.minimax_image_model.strip() or "image-01"
+    body: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "n": 1,
+        "response_format": "base64",
+        "aspect_ratio": "1:1",
+    }
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+        try:
+            resp = await client.post(url, headers=headers, json=body)
+        except httpx.RequestError as e:
+            log.warning("minimax_network_error: %s", e)
+            return ImageGenResult(None, _safe_detail(str(e)) or "MiniMax network error.")
+
+        if resp.status_code >= 400:
+            detail = _error_from_http_body(resp.status_code, resp.text or "")
+            log.warning("minimax_http_%s: %s", resp.status_code, (resp.text or "")[:600])
+            return ImageGenResult(None, detail or f"MiniMax HTTP {resp.status_code}")
+
+        try:
+            data = resp.json()
+        except Exception as e:
+            log.warning("minimax_json_error: %s body_prefix=%s", e, (resp.text or "")[:400])
+            return ImageGenResult(None, "MiniMax: invalid JSON response.")
+
+        if not isinstance(data, dict):
+            return ImageGenResult(None, "MiniMax: unexpected JSON shape.")
+
+        b64, err, fetch_url = parse_minimax_image_payload(data)
+        if b64:
+            return ImageGenResult(b64, None)
+        if err:
+            return ImageGenResult(None, err)
+        if fetch_url:
+            b64_fb = await _async_fetch_image_url_as_b64(client, fetch_url)
+            if b64_fb:
+                log.info("minimax_image_gen_using_url_fallback")
+                return ImageGenResult(b64_fb, None)
+            return ImageGenResult(None, "MiniMax: image URL returned but download failed.")
+
+        return ImageGenResult(None, "MiniMax image generation failed.")
+
+
 async def _generate_via_http(scene_prompt: str) -> ImageGenResult:
     log = logging.getLogger(__name__)
     api_key = settings.openai_api_key.strip()
@@ -340,7 +460,7 @@ async def _generate_via_http(scene_prompt: str) -> ImageGenResult:
     if auth == "azure":
         headers = _azure_style_headers(settings.openai_api_key)
         base_body_azure: dict[str, Any] = {
-            "prompt": _full_dalle_prompt(scene_prompt),
+            "prompt": _full_image_prompt(scene_prompt),
             "size": "1024x1024",
             "n": 1,
             "quality": "standard",
@@ -362,14 +482,14 @@ async def _generate_via_http(scene_prompt: str) -> ImageGenResult:
         variants = (
             {
                 "model": "dall-e-3",
-                "prompt": _full_dalle_prompt(scene_prompt),
+                "prompt": _full_image_prompt(scene_prompt),
                 "size": "1024x1024",
                 "n": 1,
                 "response_format": "b64_json",
             },
             {
                 "model": "dall-e-3",
-                "prompt": _full_dalle_prompt(scene_prompt),
+                "prompt": _full_image_prompt(scene_prompt),
                 "size": "1024x1024",
                 "n": 1,
             },
@@ -420,7 +540,10 @@ async def _generate_via_http(scene_prompt: str) -> ImageGenResult:
 
 
 async def generate_outcome_image(scene_prompt: str) -> ImageGenResult:
-    """DALL·E / Azure OpenAI images: SDK first when Azure gateway is configured, then HTTP fallback."""
+    """Generate polaroid art via MiniMax or DALL·E (Azure / OpenAI), depending on `image_provider`."""
+    if settings.image_provider == "minimax":
+        return await _generate_via_minimax(scene_prompt)
+
     log = logging.getLogger(__name__)
     api_key = settings.openai_api_key.strip()
     gateway = _azure_gateway_base()
