@@ -19,7 +19,7 @@ def test_scenarios_list() -> None:
     assert len(data["scenarios"]) >= 3
 
 
-def test_session_mock_stream_roundtrip() -> None:
+def test_session_mock_stream_roundtrip(mock_narrator_stream) -> None:
     client = TestClient(app)
     r = client.post("/api/sessions", json={"scenario_slug": "ai_overuse"})
     assert r.status_code == 200
@@ -43,7 +43,7 @@ def test_session_mock_stream_roundtrip() -> None:
     assert "event: done" in raw
 
 
-def test_session_free_text_mock_roundtrip() -> None:
+def test_session_free_text_mock_roundtrip(mock_narrator_stream) -> None:
     client = TestClient(app)
     r = client.post("/api/sessions", json={"scenario_slug": "ai_overuse"})
     sid = r.json()["session_id"]
@@ -66,7 +66,7 @@ def test_neurobot_chat_not_before_mode() -> None:
     assert client.post(f"/api/sessions/{sid}/neurobot-chat", json={"message": "Hi"}).status_code == 400
 
 
-def test_neurobot_chat_mock_reply() -> None:
+def test_neurobot_chat_mock_reply(mock_neurobot_chat) -> None:
     client = TestClient(app)
     sid = client.post("/api/sessions", json={"scenario_slug": "ai_overuse"}).json()["session_id"]
     assert client.post(f"/api/sessions/{sid}/answer-mode", json={"mode": "free_text"}).status_code == 200
