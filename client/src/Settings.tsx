@@ -25,8 +25,8 @@ export function Settings() {
       </nav>
       <h1 style={{ marginTop: 0 }}>Settings</h1>
       <p style={{ lineHeight: 1.5 }}>
-        Override API base URL for production testing (include protocol, no trailing slash). Leave empty to
-        use same-origin <code>/api</code> (Vite dev proxy).
+        Override API base URL (include protocol, no trailing slash). Leave empty to use the value from the
+        production build (<code>VITE_API_BASE</code>) or same-origin <code>/api</code> in Vite dev.
       </p>
       <input
         value={base}

@@ -1,0 +1,27 @@
+# Render Blueprint: deploy the FastAPI API (Docker build from repo root).
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: sure-would-api
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./server/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHONPATH
+        value: /app/server
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_DEPLOYMENT_NAME
+        sync: false
+      - key: AZURE_IMAGE_DEPLOYMENT
+        sync: false
+      - key: IMAGE_PROVIDER
+        value: openai
+      - key: MINIMAX_API_KEY
+        sync: false

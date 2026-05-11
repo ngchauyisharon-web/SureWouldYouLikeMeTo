@@ -13,15 +13,16 @@ import {
   type SessionSnapshot,
   type StatePatch,
 } from "./api";
+import { publicUrl } from "./publicUrl";
 import { theme } from "./theme";
 
 const ARCHIVE_KEY = "sure_archives_v1";
 
 /** Hero art per scenario slug (topic card assets). */
 const SCENARIO_HERO_ART: Record<string, string> = {
-  ai_overuse: "/topics/ai-overuse.png",
-  hallucination: "/topics/hallucination.png",
-  ethics: "/topics/ethics.png",
+  ai_overuse: "topics/ai-overuse.png",
+  hallucination: "topics/hallucination.png",
+  ethics: "topics/ethics.png",
 };
 
 /** Visual variants for AI option cards (cycles by choice index). */
@@ -550,7 +551,7 @@ export function Play() {
       ? "Ask before you choose…"
       : "What should you watch out for?";
 
-  const polaroidFallback = SCENARIO_HERO_ART[snap.scenario.slug] ?? "/landing-hero.png";
+  const polaroidFallback = publicUrl(SCENARIO_HERO_ART[snap.scenario.slug] ?? "landing-hero.png");
   const polaroidDataSrc =
     scenarioHeroArtPhase === "ready" && scenarioHeroB64 != null
       ? `data:image/png;base64,${scenarioHeroB64}`

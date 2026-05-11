@@ -56,10 +56,13 @@ export type StatePatch = {
 
 function apiPrefix(): string {
   try {
-    return globalThis.localStorage.getItem("sure_api_base")?.trim() ?? "";
+    const fromStorage = globalThis.localStorage.getItem("sure_api_base")?.trim();
+    if (fromStorage) return fromStorage;
   } catch {
-    return "";
+    /* ignore */
   }
+  const fromEnv = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+  return fromEnv ?? "";
 }
 
 export async function fetchScenarios(): Promise<ScenarioSummary[]> {

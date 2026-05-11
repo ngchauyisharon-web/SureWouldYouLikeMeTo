@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ScenarioSummary } from "./api";
+import { publicUrl } from "./publicUrl";
 
 type Props = {
   scenarios: ScenarioSummary[];
@@ -36,7 +37,7 @@ export function GameChrome({ scenarios, selectedSlug, error, children }: Props) 
               Help
             </Link>
             <div className="ref-avatar-ring" title="You">
-              <img src="/sidebar-avatar.jpg" alt="" className="ref-avatar-img" />
+              <img src={publicUrl("sidebar-avatar.jpg")} alt="" className="ref-avatar-img" />
             </div>
           </div>
         </div>

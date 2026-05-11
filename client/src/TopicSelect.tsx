@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { fetchScenarios, type ScenarioSummary } from "./api";
 import { GameChrome } from "./GameChrome";
+import { publicUrl } from "./publicUrl";
 
 const SCENARIO_ORDER = ["ai_overuse", "hallucination", "ethics"] as const;
 
@@ -97,7 +98,7 @@ function TopicCardArt({ slug, title }: { slug: string; title: string }) {
   if (src) {
     return (
       <div className="topic-card-visual">
-        <img src={src} alt={title} className="topic-card-img" decoding="async" />
+        <img src={publicUrl(src)} alt={title} className="topic-card-img" decoding="async" />
       </div>
     );
   }
@@ -109,9 +110,9 @@ function TopicCardArt({ slug, title }: { slug: string; title: string }) {
 }
 
 const CARD_ART: Record<string, string> = {
-  ai_overuse: "/topics/ai-overuse.png",
-  hallucination: "/topics/hallucination.png",
-  ethics: "/topics/ethics.png",
+  ai_overuse: "topics/ai-overuse.png",
+  hallucination: "topics/hallucination.png",
+  ethics: "topics/ethics.png",
 };
 
 const FALLBACK_EMOJI: Record<string, string> = {

@@ -7,8 +7,9 @@ import { Settings } from "./Settings";
 import { TopicSelect } from "./TopicSelect";
 
 export default function App() {
+  const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || undefined;
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/topics" element={<TopicSelect />} />

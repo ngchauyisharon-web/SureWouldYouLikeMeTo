@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchScenarios, type ScenarioSummary } from "./api";
 import { GameChrome } from "./GameChrome";
+import { publicUrl } from "./publicUrl";
 
 /** Canonical scenario order from the reference UI */
 const SCENARIO_ORDER = ["ai_overuse", "hallucination", "ethics"] as const;
@@ -61,7 +62,7 @@ export function Landing() {
 
           <div className="ref-hero-crop">
             <img
-              src="/landing-hero.png"
+              src={publicUrl("landing-hero.png")}
               alt="Wide banner: grey robot with green eyes offers a pink brain to a skeptical South Park-style boy; red and black headline Sure! Would you like me to?; circular inset with a devious grinning face top right; cream sky, blue arc, clouds, and green bushes."
               className="ref-hero-img"
               decoding="async"
